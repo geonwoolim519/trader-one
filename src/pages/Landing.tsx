@@ -28,7 +28,7 @@ export function Landing() {
     <div className="min-h-dvh bg-black px-5 py-10">
       <div className="mx-auto max-w-lg">
         <div className="flex flex-col items-center text-center">
-          <img src="/logo.png" alt="TRADER ONE" className="h-28 w-28 rounded-[28px] glow-red" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="TRADER ONE" className="h-28 w-28 rounded-[28px] glow-red" />
           <div className="mt-6 text-xs tracking-[0.4em] text-mute">TRADER ONE</div>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">Trade. Think. Decide.</h1>
           <p className="mt-2 text-sm text-mute">Experience the market.</p>

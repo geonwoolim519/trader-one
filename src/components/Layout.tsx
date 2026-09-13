@@ -89,7 +89,7 @@ export function Layout() {
 function Brand() {
   return (
     <div className="flex items-center gap-2">
-      <img src="/logo.png" alt="" className="h-9 w-9 rounded-xl" />
+      <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-9 w-9 rounded-xl" />
       <div>
         <div className="text-sm font-semibold tracking-[0.18em]">TRADER ONE</div>
         <div className="text-[10px] tracking-widest text-mute">TRADE. THINK. DECIDE.</div>
@@ -108,7 +108,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/8 bg-black/85 px-4 py-3 backdrop-blur lg:hidden">
       <button onClick={() => nav("/play")} className="flex items-center gap-2">
-        <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg" />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-8 w-8 rounded-lg" />
         <div>
           <div className="text-xs tracking-[0.2em]">TRADER ONE</div>
           <div className="text-[10px] text-mute">
