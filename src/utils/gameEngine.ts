@@ -1,9 +1,10 @@
 import { MISSIONS } from "../data/content";
-import { ASSETS, getAsset } from "../data/assets";
+import { ASSETS } from "../data/assets";
 import { SCENARIOS } from "../data/scenarios";
 import { CONDITIONS, CONDITION_IDS } from "../data/scenarios";
-import type { Difficulty, GameMode, GameState, TradeReason } from "../types";
-import { FEE_RATE, INITIAL_CASH } from "../types";
+import { defaultRegions } from "../data/macro";
+import type { Difficulty, GameMode, GameState } from "../types";
+import { INITIAL_CASH } from "../types";
 import {
   decayPricedIn,
   economyStep,
@@ -14,13 +15,14 @@ import {
   whyForAsset,
 } from "./eventEngine";
 import { changePct, makeHistory, stepMarket } from "./priceEngine";
-import {
-  investedValue,
-  totalValue,
-  unitValueKrw,
-} from "./portfolioCalculator";
+import { investedValue, totalValue } from "./portfolioCalculator";
 import { evalMissions, learnedConcepts, updateMdd } from "./performanceCalculator";
-import { pick, rngFor, uid } from "./randomEngine";
+import { pick, rngFor } from "./randomEngine";
+import { buildCausality, conditionToCycle, detectRegime, stepCycle, stepRegions } from "./macroEngine";
+import { matchOrders } from "./orderEngine";
+export { executeTrade } from "./tradeEngine";
+export { maxBuyQty } from "./orderEngine";
+export type { TradeExtra } from "./tradeEngine";
 
 export function createGame(opts: {
   mode: GameMode;
@@ -35,8 +37,9 @@ export function createGame(opts: {
   const totalDays = scenario?.days ?? (opts.mode === "quick" ? 10 : opts.mode === "long" ? 90 : 30);
   const assets = makeHistory(seed);
   const cash = INITIAL_CASH;
+  const cycle = conditionToCycle(condition);
   const state: GameState = {
-    version: 1,
+    version: 2,
     seed,
     mode: opts.mode,
     difficulty: opts.difficulty,
@@ -72,85 +75,16 @@ export function createGame(opts: {
     missions: MISSIONS.map((m) => ({ id: m.id, done: false, claimed: false })),
     phase: "playing",
     learned: [],
+    regions: defaultRegions(),
+    cycle,
+    openOrders: [],
+    reservedBuyKrw: 0,
+    causality: [],
+    challengeDone: [],
+    newsOpened: [],
   };
   state.pendingNews = pickDailyNews(state);
   return state;
-}
-
-export function executeTrade(
-  state: GameState,
-  opts: { assetId: string; side: "buy" | "sell"; qty: number; reason?: TradeReason },
-): GameState {
-  if (state.phase !== "playing") return { ...state, toast: "지금은 거래할 수 없습니다." };
-  const def = getAsset(opts.assetId);
-  const qty = Math.max(0, Math.round(opts.qty / def.lot) * def.lot);
-  if (qty <= 0) return { ...state, toast: "수량을 확인하세요." };
-  const unit = unitValueKrw(opts.assetId, state.assets);
-  const gross = unit * qty;
-  const fee = gross * FEE_RATE;
-  const px = state.assets[opts.assetId].price;
-  const related = state.pendingNews.filter((n) => n.related.includes(opts.assetId)).map((n) => n.eventId);
-
-  if (opts.side === "buy") {
-    const need = gross + fee;
-    if (need > state.cash + 0.5) return { ...state, toast: "현금이 부족합니다." };
-    const prev = state.holdings[opts.assetId] ?? { qty: 0, avgCostKrw: 0 };
-    const newQty = prev.qty + qty;
-    const avg = (prev.avgCostKrw * prev.qty + unit * qty + fee) / newQty;
-    return {
-      ...state,
-      cash: state.cash - need,
-      holdings: { ...state.holdings, [opts.assetId]: { qty: newQty, avgCostKrw: avg } },
-      trades: [
-        ...state.trades,
-        {
-          id: uid("t"),
-          day: state.day,
-          assetId: opts.assetId,
-          side: "buy",
-          qty,
-          price: px,
-          krwAmount: gross,
-          fee,
-          reason: opts.reason,
-          relatedNews: related,
-        },
-      ],
-      toast: `체결 · ${def.nameKo} ${qty} 매수`,
-    };
-  }
-
-  const prev = state.holdings[opts.assetId];
-  if (!prev || prev.qty < qty) return { ...state, toast: "보유 수량이 부족합니다." };
-  const proceeds = gross - fee;
-  const pnl = (unit - prev.avgCostKrw) * qty - fee;
-  const left = prev.qty - qty;
-  const holdings = { ...state.holdings };
-  if (left <= 0.0001) delete holdings[opts.assetId];
-  else holdings[opts.assetId] = { ...prev, qty: left };
-  return {
-    ...state,
-    cash: state.cash + proceeds,
-    holdings,
-    trades: [
-      ...state.trades,
-      {
-        id: uid("t"),
-        day: state.day,
-        assetId: opts.assetId,
-        side: "sell",
-        qty,
-        price: px,
-        krwAmount: gross,
-        fee,
-        relatedNews: related,
-        closeDay: state.day,
-        closePrice: px,
-        pnl,
-      },
-    ],
-    toast: `체결 · ${def.nameKo} ${qty} 매도`,
-  };
 }
 
 export function advanceDay(state: GameState): GameState {
@@ -158,10 +92,11 @@ export function advanceDay(state: GameState): GameState {
   const before = totalValue(state);
   const shock = mergeShocks(state.pendingNews);
   const { assets } = stepMarket(state, shock);
-  const nextAssetsState = { ...state, assets };
-  const after = totalValue(nextAssetsState);
-  const movers = ASSETS.map((a) => {
-    const ch = changePct(assets[a.id]);
+  let next: GameState = { ...state, assets };
+  next = matchOrders(next);
+  const after = totalValue(next);
+  const movers = ASSETS.filter((a) => next.assets[a.id]).map((a) => {
+    const ch = changePct(next.assets[a.id]);
     return {
       assetId: a.id,
       changePct: ch,
@@ -178,28 +113,34 @@ export function advanceDay(state: GameState): GameState {
     dailyReturn: before ? (after - before) / before : 0,
   };
 
-  const { peakValue, mdd } = updateMdd(state, after);
-  const cycle = nextCondition({ ...state, day: state.day + 1 });
-  let next: GameState = {
-    ...state,
-    assets,
-    economy: economyStep(state, shock),
-    sentiment: sentimentStep(state, shock),
-    pricedIn: decayPricedIn(state.pricedIn, state.pendingNews),
-    newsLog: [...state.newsLog, ...state.pendingNews],
-    dayReports: [...state.dayReports, report],
+  const { peakValue, mdd } = updateMdd(next, after);
+  const cycleCond = nextCondition({ ...next, day: next.day + 1 });
+  const cycle = stepCycle(next, shock);
+  const regions = stepRegions({ ...next, cycle }, shock);
+  const causality = buildCausality(shock);
+  next = {
+    ...next,
+    economy: economyStep(next, shock),
+    sentiment: sentimentStep(next, shock),
+    pricedIn: decayPricedIn(next.pricedIn, state.pendingNews),
+    newsLog: [...next.newsLog, ...state.pendingNews],
+    dayReports: [...next.dayReports, report],
     lastReport: report,
     peakValue,
     mdd,
-    valueHistory: [...state.valueHistory, after],
-    condition: cycle.condition,
-    cyclePhase: cycle.cyclePhase,
+    valueHistory: [...next.valueHistory, after],
+    condition: cycleCond.condition,
+    cyclePhase: cycleCond.cyclePhase,
+    cycle,
+    regions,
+    causality,
     phase: "settling",
     pendingNews: [],
-    toast: undefined,
+    toast: next.toast,
   };
   next.learned = learnedConcepts(next);
   next.missions = evalMissions(next);
+  void detectRegime(next);
   return next;
 }
 
@@ -212,17 +153,26 @@ export function acknowledgeDay(state: GameState): GameState {
   const assets = Object.fromEntries(
     Object.entries(state.assets).map(([id, a]) => [id, { ...a, prevPrice: a.price }]),
   );
-  const next: GameState = { ...state, day, phase: "playing", assets };
+  const next: GameState = { ...state, day, phase: "playing", assets, toast: undefined };
   next.pendingNews = pickDailyNews(next);
   return next;
 }
 
-export function maxBuyQty(state: GameState, assetId: string) {
-  const def = getAsset(assetId);
-  const unit = unitValueKrw(assetId, state.assets) * (1 + FEE_RATE);
-  if (unit <= 0) return 0;
-  const raw = Math.floor(state.cash / unit);
-  return Math.floor(raw / def.lot) * def.lot;
+export function markNewsOpened(state: GameState, newsId: string): GameState {
+  if ((state.newsOpened ?? []).includes(newsId)) return state;
+  return { ...state, newsOpened: [...(state.newsOpened ?? []), newsId] };
+}
+
+export function markChallengeFlag(state: GameState, flag: string): GameState {
+  if ((state.challengeDone ?? []).includes(flag)) return state;
+  return { ...state, challengeDone: [...(state.challengeDone ?? []), flag] };
+}
+
+export function reviewTrade(state: GameState, tradeId: string): GameState {
+  return {
+    ...state,
+    trades: state.trades.map((t) => (t.id === tradeId ? { ...t, reviewed: true } : t)),
+  };
 }
 
 export function indexProxy() {

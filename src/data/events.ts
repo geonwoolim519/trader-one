@@ -1,4 +1,5 @@
 import type { EventDef } from "../types";
+import { EXTRA_EVENTS } from "./eventsExtra";
 
 function ev(def: EventDef): EventDef {
   return def;
@@ -662,6 +663,7 @@ export const EVENTS: EventDef[] = [
     why: { supplyChain: "공급망 정상화는 비용과 생산 가시성을 개선하는 재료입니다." },
     concepts: ["공급망"],
   }),
+  ...EXTRA_EVENTS,
 ];
 
 export const SPECIAL_EVENTS: EventDef[] = [

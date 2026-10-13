@@ -10,6 +10,11 @@ import { ResultPage } from "./pages/Result";
 import { SettingsPage } from "./pages/Settings";
 import { TradePage } from "./pages/Trade";
 import { TutorialPage } from "./pages/Tutorial";
+import { CareerPage } from "./pages/Career";
+import { JournalPage } from "./pages/Journal";
+import { LearnPage } from "./pages/Learn";
+import { LabPage } from "./pages/Lab";
+import { OrdersPage } from "./pages/Orders";
 import { useGame } from "./store/GameProvider";
 
 function PlayGate({ children }: { children: ReactNode }) {
@@ -52,6 +57,11 @@ export default function App() {
         </Route>
         <Route path="result" element={<ResultPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="career" element={<CareerPage />} />
+        <Route path="journal" element={<JournalPage />} />
+        <Route path="learn" element={<LearnPage />} />
+        <Route path="lab" element={<LabPage />} />
+        <Route path="orders" element={<OrdersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

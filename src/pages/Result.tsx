@@ -3,15 +3,17 @@ import { Card, InfoTip, Label } from "../components/ui";
 import { CONCEPTS } from "../data/content";
 import { useGame } from "../store/GameProvider";
 import { INITIAL_CASH } from "../types";
+import { SCENARIOS } from "../data/scenarios";
+import { traderInsight } from "../utils/insightEngine";
 import {
   analyzeStyle,
   goodsAndBads,
-  insights,
   learnedConcepts,
   riskAdjusted,
   tradeReview,
   winRate,
 } from "../utils/performanceCalculator";
+import { scoreScenario } from "../utils/scenarioScore";
 import { totalValue } from "../utils/portfolioCalculator";
 import { formatKrw, formatPct, pnlClass } from "../utils/randomEngine";
 
@@ -26,6 +28,8 @@ export function ResultPage() {
   const review = tradeReview(state);
   const concepts = learnedConcepts(state);
   const ended = state.phase === "ended";
+  const sc = state.scenarioId ? SCENARIOS.find((s) => s.id === state.scenarioId) : null;
+  const scored = sc ? scoreScenario(state) : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -60,10 +64,33 @@ export function ResultPage() {
           ))}
         </ul>
       </Card>
+      {scored && (
+        <Card className="p-5">
+          <Label>SCENARIO SCORE</Label>
+          <div className="mt-2 text-3xl font-semibold">{scored.total}</div>
+          <p className="mt-1 text-sm text-white/70">{sc?.name}</p>
+          <div className="mt-3 space-y-1 text-sm">
+            {scored.rows.map((r) => (
+              <div key={r.k} className="flex justify-between">
+                <span className="text-mute">
+                  {r.k} ({r.w})
+                </span>
+                <span>
+                  {r.v.toFixed(0)} · {r.note}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-sm text-white/75">{scored.endNote}</p>
+          {scored.strategies.length > 0 && (
+            <p className="mt-2 text-xs text-mute">가능했던 전략: {scored.strategies.join(" / ")}</p>
+          )}
+        </Card>
+      )}
       <Card className="p-5">
         <Label>TRADER INSIGHT</Label>
         <div className="mt-2 space-y-2 text-sm leading-6 text-white/80">
-          {insights(state).map((x) => (
+          {traderInsight(state).map((x) => (
             <p key={x}>{x}</p>
           ))}
         </div>

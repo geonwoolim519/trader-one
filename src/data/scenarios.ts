@@ -1,4 +1,5 @@
 import type { MarketConditionId } from "../types";
+import { EXTRA_SCENARIOS } from "./scenariosExtra";
 
 export interface ScenarioDef {
   id: string;
@@ -10,6 +11,10 @@ export interface ScenarioDef {
   condition: MarketConditionId;
   bias: string[];
   intro: string;
+  goals?: string[];
+  strategies?: string[];
+  endNote?: string;
+  weights?: Partial<Record<"ret" | "mdd" | "cash" | "div" | "cost" | "goal", number>>;
 }
 
 export const SCENARIOS: ScenarioDef[] = [
@@ -122,7 +127,11 @@ export const SCENARIOS: ScenarioDef[] = [
     condition: "boom",
     bias: ["boom", "kr_recovery", "consume_up", "semi_demand", "fta", "cpi_cool"],
     intro: "좋은 뉴스가 겹칩니다. 그래도 분산과 과열을 잊지 마세요.",
+    goals: ["상승장에서도 분산 유지", "과열 신호를 수익으로만 해석하지 않기"],
+    strategies: ["성장 자산 중심", "분할 익절", "현금 버퍼"],
+    endNote: "좋은 뉴스의 중첩이 언제나 추가 상승을 의미하지는 않습니다.",
   },
+  ...EXTRA_SCENARIOS,
 ];
 
 export const CONDITIONS: Record<

@@ -143,6 +143,7 @@ export function ScenarioPage() {
               <div className="text-[11px] tracking-[0.2em] text-brand">SCENARIO {s.code}</div>
               <div className="mt-1 text-lg font-semibold">{s.name}</div>
               <p className="mt-2 text-sm leading-6 text-white/70">{s.description}</p>
+              {s.goals && <p className="mt-2 text-xs text-mute">목표 · {s.goals[0]}</p>}
             </button>
           ))}
         </div>

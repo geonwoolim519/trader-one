@@ -4,7 +4,7 @@ import { Card, Label, REL_HINT, ReliabilityBadge } from "../components/ui";
 import { useGame } from "../store/GameProvider";
 
 export function NewsPage() {
-  const { state } = useGame();
+  const { state, openNews } = useGame();
   const nav = useNavigate();
   if (!state) return null;
   const today = state.pendingNews;
@@ -19,7 +19,7 @@ export function NewsPage() {
         <Label>TODAY</Label>
         <div className="mt-2 space-y-3">
           {today.map((n) => (
-            <Card key={n.id} className="p-4">
+            <Card key={n.id} className="p-4" onClick={() => openNews(n.id)}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-mute">{n.time}</span>
                 {n.special && <span className="text-xs text-brand">BREAKING</span>}
@@ -49,7 +49,7 @@ export function NewsPage() {
           <Label>ARCHIVE</Label>
           <div className="mt-2 space-y-2">
             {past.map((n) => (
-              <div key={n.id} className="rounded-xl border border-white/6 px-4 py-3">
+              <div key={n.id} className="rounded-xl border border-white/6 px-4 py-3" onClick={() => openNews(n.id)}>
                 <div className="flex items-center gap-2 text-xs text-mute">
                   DAY {n.day} · {n.time}
                   <ReliabilityBadge r={n.reliability} />

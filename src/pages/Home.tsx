@@ -1,9 +1,12 @@
 import { Navigate, useNavigate } from "react-router-dom";
 import { MISSIONS } from "../data/content";
+import { dailyChallenges, challengeKey } from "../data/challenges";
+import { CYCLE_LABEL } from "../data/macro";
 import { CONDITIONS } from "../data/scenarios";
 import { SCENARIOS } from "../data/scenarios";
 import { useGame } from "../store/GameProvider";
 import { indexProxy } from "../utils/gameEngine";
+import { detectRegime } from "../utils/macroEngine";
 import { changePct } from "../utils/priceEngine";
 import { totalValue } from "../utils/portfolioCalculator";
 import { INITIAL_CASH } from "../types";
@@ -12,9 +15,11 @@ import { getAsset } from "../data/assets";
 import { Card, InfoTip, Label, ReliabilityBadge, Sparkline } from "../components/ui";
 
 export function HomePage() {
-  const { state, nextDay } = useGame();
+  const { state, meta, nextDay, claimChallenge } = useGame();
   const nav = useNavigate();
   if (!state) return <Navigate to="/" replace />;
+  const regime = detectRegime(state);
+  const dailies = dailyChallenges(state.day);
   const value = totalValue(state);
   const ret = (value - INITIAL_CASH) / INITIAL_CASH;
   const today = state.valueHistory.length > 1
@@ -50,7 +55,7 @@ export function HomePage() {
           <div className="mt-4 flex justify-between text-xs text-mute">
             <span>오늘의 수익률 {formatPct(today)}</span>
             <span>
-              {CONDITIONS[state.condition].label}
+              {CONDITIONS[state.condition].label} · {CYCLE_LABEL[state.cycle]}
               <InfoTip id="시장심리" />
             </span>
           </div>
@@ -116,6 +121,51 @@ export function HomePage() {
       </div>
 
       <div className="space-y-4">
+        <Card className="p-4">
+          <Label>DESK</Label>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            {[
+              ["/play/career", "CAREER"],
+              ["/play/journal", "JOURNAL"],
+              ["/play/learn", "LEARNING"],
+              ["/play/lab", "ADV LAB"],
+              ["/play/orders", "ORDERS"],
+              ["/play/market", "MARKET"],
+            ].map(([to, label]) => (
+              <button key={to} className="rounded-xl border border-white/10 py-2" onClick={() => nav(to)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 text-xs text-mute">
+            {regime.label} · LV {meta.careerRank} · 업적 {meta.achievements.length}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <Label>DAILY (GAME DAY {state.day})</Label>
+          <p className="mt-1 text-[11px] text-mute">실제 달력이 아니라 게임 DAY 기준입니다. 보상은 XP뿐입니다.</p>
+          <div className="mt-3 space-y-3">
+            {dailies.map((c) => {
+              const claimed = state.challengeDone.includes(challengeKey(state.day, c.id));
+              const ready = c.check(state, meta);
+              return (
+                <div key={c.id} className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm">{c.title}</div>
+                    <div className="text-xs text-mute">{c.detail}</div>
+                  </div>
+                  <button
+                    disabled={claimed}
+                    onClick={() => claimChallenge(c.id)}
+                    className="shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[11px] disabled:opacity-40"
+                  >
+                    {claimed ? "DONE" : ready ? `+${c.xp} XP` : "미완"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
         <Card className="p-4">
           <Label>MISSIONS</Label>
           <div className="mt-3 space-y-3">

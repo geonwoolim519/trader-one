@@ -187,6 +187,16 @@ function DayModal() {
         <div className="text-sm text-mute">
           {formatKrw(r.portfolioBefore)} → {formatKrw(r.portfolioAfter)}
         </div>
+        {(state.causality ?? []).slice(0, 3).length > 0 && (
+          <div className="mt-4 rounded-xl border border-white/8 p-3">
+            <div className="text-[11px] tracking-widest text-brand">CHAIN</div>
+            {(state.causality ?? []).slice(0, 3).map((c, i) => (
+              <p key={`${c.from}-${i}`} className="mt-1 text-xs text-white/70">
+                {c.from} → {c.to} · 예상 {c.expected} / 실제 {c.actual}
+              </p>
+            ))}
+          </div>
+        )}
         <div className="mt-5 space-y-3">
           {r.movers.slice(0, 5).map((m) => {
             const a = getAsset(m.assetId);

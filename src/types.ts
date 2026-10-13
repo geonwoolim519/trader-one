@@ -134,6 +134,12 @@ export interface EventDef {
   related: string[];
   why: Partial<Record<Factor, string>>;
   concepts: string[];
+  region?: RegionId | "GLOBAL";
+  industry?: string;
+  indirect?: string[];
+  duration?: number;
+  intensity?: number;
+  lesson?: string;
 }
 
 export interface PendingNews {
@@ -181,7 +187,77 @@ export interface Trade {
   closeDay?: number;
   closePrice?: number;
   pnl?: number;
+  orderType?: OrderType;
+  expectedDir?: "up" | "down" | "range";
+  horizon?: "day" | "swing" | "position";
+  riskNote?: "low" | "mid" | "high";
+  confidence?: number;
+  reviewed?: boolean;
+  note?: string;
 }
+
+export type OrderType = "market" | "limit" | "stop_loss" | "take_profit" | "scheduled";
+export type OrderStatus = "open" | "filled" | "cancelled" | "expired";
+
+export interface Order {
+  id: string;
+  assetId: string;
+  type: OrderType;
+  side: TradeSide;
+  qty: number;
+  limitPrice?: number;
+  triggerPrice?: number;
+  activateDay?: number;
+  expireDay: number;
+  createdDay: number;
+  status: OrderStatus;
+  reservedKrw: number;
+  fillPrice?: number;
+  fillDay?: number;
+  slippage?: number;
+  reason?: TradeReason;
+  expectedDir?: "up" | "down" | "range";
+  horizon?: "day" | "swing" | "position";
+  riskNote?: "low" | "mid" | "high";
+  confidence?: number;
+  note?: string;
+}
+
+export type CyclePhase =
+  | "recovery"
+  | "expansion"
+  | "overheat"
+  | "inflation"
+  | "tightening"
+  | "slowdown"
+  | "recession"
+  | "easing"
+  | "early_recovery";
+
+export type RegionId = "US" | "KR" | "CN" | "EU";
+
+export interface RegionState {
+  id: RegionId;
+  phase: CyclePhase;
+  rate: number;
+  inflation: number;
+  growth: number;
+  currency: number;
+  exports: number;
+  imports: number;
+  risk: number;
+}
+
+export interface CausalityLink {
+  from: string;
+  to: string;
+  expected: "up" | "down" | "mixed";
+  actual: "up" | "down" | "flat";
+  intensity: number;
+  note: string;
+}
+
+export type MarketRegime = "risk_on" | "risk_off" | "inflationary" | "deflationary" | "high_vol" | "low_vol";
 
 export interface MissionDef {
   id: string;
@@ -215,10 +291,20 @@ export interface PlayerMeta {
   gamesPlayed: number;
   bestReturn: number;
   tutorialDone: boolean;
+  careerRank: number;
+  careerDone: string[];
+  achievements: string[];
+  watchlist: string[];
+  scenariosCompleted: string[];
+  learningDone: string[];
+  journalReviews: number;
+  newsRead: number;
+  compared: boolean;
+  limitFills: number;
 }
 
 export interface GameState {
-  version: 1;
+  version: 1 | 2;
   seed: number;
   mode: GameMode;
   difficulty: Difficulty;
@@ -246,6 +332,13 @@ export interface GameState {
   learned: string[];
   toast?: string;
   xpGranted?: boolean;
+  regions: Record<RegionId, RegionState>;
+  cycle: CyclePhase;
+  openOrders: Order[];
+  reservedBuyKrw: number;
+  causality: CausalityLink[];
+  challengeDone: string[];
+  newsOpened: string[];
 }
 
 export const FEE_RATE = 0.001;

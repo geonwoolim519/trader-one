@@ -17,7 +17,7 @@ import {
 import { formatKrw, formatPct, formatPrice, pnlClass } from "../utils/randomEngine";
 
 export function PortfolioPage() {
-  const { state } = useGame();
+  const { state, flag } = useGame();
   const nav = useNavigate();
   if (!state) return null;
   const value = totalValue(state);
@@ -42,7 +42,9 @@ export function PortfolioPage() {
         <Card className="p-4">
           <Label>현금 / 투자자산</Label>
           <div className="mt-2 text-xl tabular">{formatKrw(state.cash)}</div>
-          <div className="text-sm text-mute">투자 {formatKrw(investedValue(state))}</div>
+          <div className="text-sm text-mute">
+            투자 {formatKrw(investedValue(state))} · 주문 예약 {formatKrw(state.reservedBuyKrw ?? 0)}
+          </div>
         </Card>
       </div>
       <Card className="p-4">
@@ -58,6 +60,9 @@ export function PortfolioPage() {
       </Card>
       <Card className="p-4">
         <Label>RISK</Label>
+        <button className="mt-1 text-[11px] text-mute" onClick={() => flag(`d${state.day}:risk`)}>
+          위험 확인 기록
+        </button>
         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
           <div>
             Portfolio Risk

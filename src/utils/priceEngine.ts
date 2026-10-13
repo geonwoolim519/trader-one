@@ -62,20 +62,41 @@ export function makeIntraday(end: number, start: number, rng: () => number) {
   return pts;
 }
 
+const CYCLE_FACTOR: Partial<Record<string, Partial<Record<Factor, number>>>> = {
+  recovery: { growth: 0.004, consumption: 0.003 },
+  expansion: { growth: 0.006, tech: 0.004, riskOff: -0.004 },
+  overheat: { inflation: 0.005, consumption: 0.003, riskOff: -0.002 },
+  inflation: { inflation: 0.007, usRates: 0.004, oil: 0.003 },
+  tightening: { usRates: 0.006, bonds: -0.005, tech: -0.004 },
+  slowdown: { growth: -0.005, consumption: -0.004 },
+  recession: { growth: -0.008, riskOff: 0.01, gold: 0.004 },
+  easing: { usRates: -0.006, bonds: 0.005, tech: 0.004 },
+  early_recovery: { growth: 0.003, riskOff: -0.003 },
+};
+
 export function stepMarket(state: GameState, actual: Partial<Record<Factor, number>>, salt = 1) {
   const cond = CONDITIONS[state.condition];
   const rng = rngFor(state.seed, state.day, salt);
   const next: Record<string, AssetState> = { ...state.assets };
   const whyBits: Record<string, string[]> = {};
+  const cycleShock = CYCLE_FACTOR[state.cycle ?? ""] ?? {};
 
   for (const def of ASSETS) {
-    const cur = state.assets[def.id];
+    const cur = state.assets[def.id] ?? {
+      id: def.id,
+      price: def.startPrice,
+      prevPrice: def.startPrice,
+      volume: def.baseVolume,
+      history: [{ day: 0, price: def.startPrice, volume: def.baseVolume }],
+      intraday: [def.startPrice],
+    };
     const eventShock = shockFromFactors(def.sensitivity, actual) * 0.42;
     const regimeShock = shockFromFactors(def.sensitivity, cond.factors as Partial<Record<Factor, number>>) * 0.5;
+    const cyclePart = shockFromFactors(def.sensitivity, cycleShock) * 0.28;
     const sentiment = state.sentiment * (def.sensitivity.riskOff * -0.35 + def.beta * 0.15);
     const noise = (rng() - 0.5) * 2 * def.volatility * cond.vol;
     const reversion = -0.015 * Math.log(Math.max(0.2, cur.price / def.startPrice));
-    let change = def.baseTrend + cond.trend * def.beta + eventShock + regimeShock * 0.35 + sentiment + noise + reversion;
+    let change = def.baseTrend + cond.trend * def.beta + eventShock + regimeShock * 0.35 + cyclePart + sentiment + noise + reversion;
     change = clamp(change, -def.maxMove, def.maxMove);
 
     let price = cur.price * (1 + change);
